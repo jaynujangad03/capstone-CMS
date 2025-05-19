@@ -1,3 +1,61 @@
+<?php
+// Determine user type and name for header
+session_start();
+$userName = "";
+$userRole = "";
+$userInitials = "";
+$patient = null;
+
+// If a student is logged in, always fetch their student_id and name from imported_patients using id from session.
+if (isset($_SESSION['student_row_id'])) { // expects 'student_row_id' to be set in session after login
+    require_once __DIR__ . '/../includes/db_connect.php';
+    // Only create a new connection if $conn is not set, not a valid mysqli object, or is closed
+    if (!isset($conn) || !$conn instanceof mysqli || $conn->connect_errno || !$conn->ping()) {
+        $conn = new mysqli('localhost', 'root', '', 'clinic_management_system');
+    }
+    $row_id = $_SESSION['student_row_id'];
+    $stmt = $conn->prepare("SELECT student_id, name, dob, gender, address, civil_status, year_level FROM imported_patients WHERE id = ? LIMIT 1");
+    if ($stmt) {
+        $stmt->bind_param("i", $row_id);
+        $stmt->execute();
+        $stmt->bind_result($student_id, $name, $dob, $gender, $address, $civil_status, $year_level);
+        if ($stmt->fetch()) {
+            $patient = [
+                'student_id' => $student_id,
+                'name' => $name,
+                'dob' => $dob,
+                'gender' => $gender,
+                'address' => $address,
+                'civil_status' => $civil_status,
+                'year_level' => $year_level
+            ];
+        }
+        $stmt->close();
+    }
+    // Only close if we created the connection here
+    if (!isset($GLOBALS['conn_from_db_connect']) && isset($conn) && $conn instanceof mysqli && $conn->ping()) {
+        $conn->close();
+    }
+} elseif (isset($_SESSION['user_name'])) {
+    // Staff/Admin login
+    $userName = $_SESSION['user_name'];
+    $userRole = isset($_SESSION['role']) ? ucfirst($_SESSION['role']) : "Administrator";
+    $userStudentId = "";
+} else {
+    $userName = "Guest";
+    $userRole = "";
+    $userStudentId = "";
+}
+// Calculate initials
+if (!empty($userName)) {
+    $parts = explode(' ', trim($userName));
+    $userInitials = strtoupper(substr($parts[0], 0, 1));
+    if (count($parts) > 1) {
+        $userInitials .= strtoupper(substr($parts[1], 0, 1));
+    }
+}
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -167,12 +225,14 @@
 </head>
 
 <body>
+
     <div class="min-h-screen flex flex-col">
         <!-- Header -->
         <header class="bg-white border-b border-gray-200 fixed top-0 left-0 w-full z-30">
             <div class="flex items-center justify-between px-6 py-3">
                 <div class="flex items-center">
-                    <img src="../logo.jpg" alt="St. Cecilia's College Logo" class="h-12 w-12 object-contain rounded-full border border-gray-200 bg-white shadow mr-4" />
+                    <img src="../logo.jpg" alt="St. Cecilia's College Logo"
+                        class="h-12 w-12 object-contain rounded-full border border-gray-200 bg-white shadow mr-4" />
                     <h1 class="text-xl font-semibold text-gray-800 hidden md:block">Clinic Management System</h1>
                 </div>
                 <div class="flex items-center space-x-4">
@@ -190,11 +250,33 @@
                     </div>
                     <div class="flex items-center">
                         <div class="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white mr-2">
-                            <span class="font-medium">JD</span>
+                            <span class="font-medium">
+                                <?php
+                                if (isset($patient) && $patient) {
+                                    // Show initials from patient name
+                                    $parts = explode(' ', trim($patient['name']));
+                                    $initials = strtoupper(substr($parts[0], 0, 1));
+                                    if (count($parts) > 1) {
+                                        $initials .= strtoupper(substr($parts[1], 0, 1));
+                                    }
+                                    echo htmlspecialchars($initials);
+                                } else {
+                                    echo htmlspecialchars($userInitials);
+                                }
+                                ?>
+                            </span>
                         </div>
                         <div class="hidden md:block">
-                            <p class="text-sm font-medium text-gray-800">Dr. James Davis</p>
-                            <p class="text-xs text-gray-500">Administrator</p>
+                            <?php if (isset($patient) && $patient): ?>
+                                <p class="text-sm font-medium text-gray-800">
+                                    <?php echo htmlspecialchars($patient['name']); ?></p>
+                                <p class="text-xs text-gray-500">Student</p>
+                                <p class="text-xs text-gray-400">ID: <?php echo htmlspecialchars($patient['student_id']); ?>
+                                </p>
+                            <?php else: ?>
+                                <p class="text-sm font-medium text-gray-800"><?php echo htmlspecialchars($userName); ?></p>
+                                <p class="text-xs text-gray-500"><?php echo htmlspecialchars($userRole); ?></p>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -203,7 +285,7 @@
         <div class="flex flex-1">
             <!-- Sidebar -->
             <aside
-                class="w-16 md:w-64 bg-white border-r border-gray-200 flex flex-col fixed top-[65px] left-0 h-[calc(100vh-56px)] z-40">
+                class="w-16 md:w-64 bg-white border-r border-gray-200 flex flex-col fixed top-[73px] left-0 h-[calc(100vh-56px)] z-40">
                 <nav class="flex-1 pt-5 pb-4 overflow-y-auto">
                     <ul class="space-y-1 px-2" id="sidebarMenu">
                         <li>

@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $db->prepare('SELECT * FROM imported_patients WHERE student_id = ?');
             $stmt->execute([$student_id]);
             $patient = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($patient) {
+            if ($patient) { 
                 // Extract last name from name field (assume last word is last name)
                 $name = trim($patient['name']);
                 $nameParts = preg_split('/\s+/', $name);

@@ -1,5 +1,43 @@
 <?php
 include '../includep/header.php';
+$student_id = $_SESSION['student_row_id']; // This is the imported_patients.id
+
+// Use a separate connection for this file to avoid using a closed $conn from header.php
+$conn2 = new mysqli('localhost', 'root', '', 'clinic_management_system');
+if ($conn2->connect_errno) {
+    die('Database connection failed: ' . $conn2->connect_error);
+}
+
+// Handle appointment booking
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $date = $_POST['date'];
+    $time = $_POST['time'];
+    $reason = $_POST['reason'];
+    $insert = $conn2->prepare('INSERT INTO appointments (student_id, date, time, reason, status) VALUES (?, ?, ?, ?, ?)');
+    $status = 'pending';
+    $insert->bind_param('issss', $student_id, $date, $time, $reason, $status);
+    $insert->execute();
+    $insert->close();
+}
+
+// Fetch appointments for this student
+$appointments = [];
+$stmt = $conn2->prepare('SELECT date, time, reason, status FROM appointments WHERE student_id = ? ORDER BY date DESC, time DESC');
+if ($stmt) {
+    $stmt->bind_param('i', $student_id);
+    $stmt->execute();
+    $stmt->bind_result($date, $time, $reason, $status);
+    while ($stmt->fetch()) {
+        $appointments[] = [
+            'date' => $date,
+            'time' => $time,
+            'reason' => $reason,
+            'status' => $status
+        ];
+    }
+    $stmt->close();
+}
+$conn2->close();
 ?>
 
 <main class="flex-1 overflow-y-auto bg-gray-50 p-6 ml-16 md:ml-64 mt-[56px]">
@@ -14,26 +52,20 @@ include '../includep/header.php';
     <!-- Book Appointment Form -->
     <div class="bg-white rounded shadow p-6 mb-8 max-w-xl">
         <h3 class="text-lg font-semibold mb-4">Book an Appointment</h3>
-        <form id="bookApptForm">
+        <form id="bookApptForm" method="POST" autocomplete="off">
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <input type="date" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" min="2025-05-16" required />
+                <input type="date" name="date" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" min="<?php echo date('Y-m-d'); ?>" required />
             </div>
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                <input type="time" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" required />
+                <input type="time" name="time" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" required />
             </div>
             <div class="mb-6">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
-                <select class="w-full border border-gray-300 rounded px-3 py-2 text-sm" required>
-                    <option value="">Select reason</option>
-                    <option value="consultation">Consultation</option>
-                    <option value="followup">Follow-up</option>
-                    <option value="medicine">Request Medicine</option>
-                    <option value="other">Other</option>
-                </select>
+                <input type="text" name="reason" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="Enter reason" required />
             </div>
-            <button type="submit" class="w-full bg-primary text-white py-2 rounded hover:bg-primary/90">Book Appointment</button>
+            <button type="submit" id="bookApptBtn" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition-colors">Book Appointment</button>
         </form>
     </div>
     <!-- My Appointments Table -->
@@ -51,42 +83,90 @@ include '../includep/header.php';
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td class="px-4 py-2">2025-05-18</td>
-                        <td class="px-4 py-2">09:00 AM</td>
-                        <td class="px-4 py-2">Consultation</td>
-                        <td class="px-4 py-2"><span class="inline-block px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs">Pending</span></td>
-                        <td class="px-4 py-2 text-center">
-                            <button class="cancelBtn px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 mr-1">Cancel</button>
-                            <button class="reschedBtn px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Reschedule</button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="px-4 py-2">2025-05-10</td>
-                        <td class="px-4 py-2">10:30 AM</td>
-                        <td class="px-4 py-2">Request Medicine</td>
-                        <td class="px-4 py-2"><span class="inline-block px-2 py-1 rounded bg-green-100 text-green-800 text-xs">Confirmed</span></td>
-                        <td class="px-4 py-2 text-center">
-                            <button class="cancelBtn px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 mr-1">Cancel</button>
-                            <button class="reschedBtn px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Reschedule</button>
-                        </td>
-                    </tr>
+                <?php if (!empty($appointments)): ?>
+                    <?php foreach ($appointments as $appt): ?>
+                        <tr>
+                            <td class="px-4 py-2"><?php echo htmlspecialchars($appt['date']); ?></td>
+                            <td class="px-4 py-2"><?php echo htmlspecialchars($appt['time']); ?></td>
+                            <td class="px-4 py-2"><?php echo htmlspecialchars($appt['reason']); ?></td>
+                            <td class="px-4 py-2">
+                                <?php if ($appt['status'] === 'pending'): ?>
+                                    <span class="inline-block px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs">Pending</span>
+                                <?php elseif ($appt['status'] === 'confirmed'): ?>
+                                    <span class="inline-block px-2 py-1 rounded bg-green-100 text-green-800 text-xs">Confirmed</span>
+                                <?php elseif ($appt['status'] === 'cancelled'): ?>
+                                    <span class="inline-block px-2 py-1 rounded bg-red-100 text-red-800 text-xs">Cancelled</span>
+                                <?php else: ?>
+                                    <span class="inline-block px-2 py-1 rounded bg-gray-100 text-gray-800 text-xs"><?php echo htmlspecialchars($appt['status']); ?></span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-4 py-2 text-center">
+                                <button class="cancelBtn px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 mr-1">Cancel</button>
+                                <button class="reschedBtn px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Reschedule</button>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <tr><td colspan="5" class="px-4 py-2 text-center text-gray-400">No appointments found.</td></tr>
+                <?php endif; ?>
                 </tbody>
             </table>
         </div>
     </div>
 </main>
-<script>
-document.getElementById('bookApptForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    alert('Appointment booked!');
-});
-const cancelBtns = document.querySelectorAll('.cancelBtn');
-const reschedBtns = document.querySelectorAll('.reschedBtn');
-cancelBtns.forEach(btn => btn.addEventListener('click', () => alert('Appointment cancelled!')));
-reschedBtns.forEach(btn => btn.addEventListener('click', () => alert('Reschedule dialog would open.')));
-</script>
 
 <?php
 include '../includep/footer.php';
 ?>
+
+<?php
+// DROP TABLE IF EXISTS appointments;
+// CREATE TABLE appointments (
+//     id INT AUTO_INCREMENT PRIMARY KEY,
+//     student_id INT NOT NULL,
+//     date DATE NOT NULL,
+//     time TIME NOT NULL,
+//     reason VARCHAR(255) NOT NULL,
+//     status ENUM('pending', 'confirmed', 'canceled') DEFAULT 'pending',
+//     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+//     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+//     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+// );
+?>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.cancelBtn').forEach(function(btn, idx) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (btn.disabled) return;
+            if (confirm('Are you sure you want to cancel this appointment?')) {
+                // Find the appointment row and get date/time/reason as unique keys
+                const row = btn.closest('tr');
+                const date = row.children[0].textContent.trim();
+                const time = row.children[1].textContent.trim();
+                const reason = row.children[2].textContent.trim();
+                // Send AJAX request to cancel
+                fetch('profile_cancel_appointment.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ date, time, reason })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update status cell in the table
+                        const statusCell = row.querySelector('td:nth-child(4) span');
+                        statusCell.textContent = 'Cancelled';
+                        statusCell.className = 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800';
+                        btn.disabled = true;
+                        btn.classList.add('opacity-50', 'cursor-not-allowed');
+                    } else {
+                        alert('Failed to cancel appointment.');
+                    }
+                });
+            }
+        });
+    });
+});
+</script>

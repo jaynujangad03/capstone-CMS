@@ -118,11 +118,27 @@ try {
                     <i class="ri-alert-line ri-xl"></i>
                 </div>
                 <div>
-                    <p class="text-sm font-medium text-red-800">Low Stock Alert</p>
+                    <p class="text-sm font-medium text-red-800">Medicine Stock Alert</p>
                     <p class="text-xs text-red-600">
                         <?php
                         if (!empty($lowStockMeds)) {
-                            echo implode(', ', $lowStockMeds) . ' ' . (count($lowStockMeds) === 1 ? 'is' : 'are') . ' running low.';
+                            // Fetch medicine quantities for low stock
+                            $lowStockDetails = [];
+                            $stmt = $db->query('SELECT name, quantity FROM medicines WHERE quantity <= 20');
+                            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                                $lowStockDetails[] = $row;
+                            }
+                            $emptyMeds = array_filter($lowStockDetails, function($med) { return $med['quantity'] == 0; });
+                            $lowMeds = array_filter($lowStockDetails, function($med) { return $med['quantity'] > 0; });
+                            if (!empty($emptyMeds)) {
+                                $names = array_map(function($med) { return $med['name']; }, $emptyMeds);
+                                echo implode(', ', $names) . ' ' . (count($names) === 1 ? 'is' : 'are') . ' empty.';
+                            }
+                            if (!empty($lowMeds)) {
+                                if (!empty($emptyMeds)) echo ' '; // space between messages
+                                $names = array_map(function($med) { return $med['name']; }, $lowMeds);
+                                echo implode(', ', $names) . ' ' . (count($names) === 1 ? 'is' : 'are') . ' running low.';
+                            }
                         } else {
                             echo 'No medicines are running low.';
                         }

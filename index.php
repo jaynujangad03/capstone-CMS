@@ -52,7 +52,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $login_error = 'incorrect_password';
         }
       } else {
-        $login_error = 'invalid_username';
+        // Try imported_patients table (student login)
+        $importDb = new PDO('mysql:host=localhost;dbname=clinic_management_system;charset=utf8', 'root', '');
+        $importDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $stmt2 = $importDb->prepare('SELECT * FROM imported_patients WHERE student_id = ?');
+        $stmt2->execute([$username]);
+        $student = $stmt2->fetch(PDO::FETCH_ASSOC);
+        if ($student && $student['password'] === $password) {
+          session_start();
+          $_SESSION['user_id'] = $student['id'];
+          $_SESSION['username'] = $student['student_id'];
+          $_SESSION['role'] = 'student';
+          // Pass the imported_patients row id for header.php
+          $_SESSION['student_row_id'] = $student['id'];
+          // Log the login event
+          try {
+            $logDb = new PDO('mysql:host=localhost;dbname=clinic_management_system;charset=utf8', 'root', '');
+            $logDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $logStmt = $logDb->prepare('CREATE TABLE IF NOT EXISTS logs (
+                            id INT AUTO_INCREMENT PRIMARY KEY,
+                            user_id INT,
+                            user_email VARCHAR(255),
+                            action VARCHAR(255),
+                            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )');
+            $logStmt->execute();
+            $logInsert = $logDb->prepare('INSERT INTO logs (user_id, user_email, action) VALUES (?, ?, ?)');
+            $logInsert->execute([$student['id'], $student['student_id'], 'Logged in']);
+          } catch (PDOException $e) {}
+          header('Location: patient/profile.php');
+          exit;
+        } else {
+          $login_error = 'invalid_username';
+        }
       }
     } catch (PDOException $e) {
       $login_error = 'Database error.';

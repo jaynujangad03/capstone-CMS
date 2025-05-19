@@ -232,7 +232,7 @@ if (isset($_SESSION['username'])) {
         <div class="flex flex-1">
             <!-- Sidebar -->
             <aside
-                class="w-16 md:w-64 bg-white border-r border-gray-200 flex flex-col fixed top-[65px] left-0 h-[calc(100vh-56px)] z-40">
+                class="w-16 md:w-64 bg-white border-r border-gray-200 flex flex-col fixed top-[73px] left-0 h-[calc(100vh-56px)] z-40">
                 <nav class="flex-1 pt-5 pb-4 overflow-y-auto">
                     <ul class="space-y-1 px-2" id="sidebarMenu">
                         <li>

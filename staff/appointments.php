@@ -1,5 +1,22 @@
 <?php
 include '../includes/header.php';
+
+$conn = new mysqli('localhost', 'root', '', 'clinic_management_system');
+if ($conn->connect_errno) {
+    die('Database connection failed: ' . $conn->connect_error);
+}
+
+$appointments = [];
+// Use only columns that exist in the appointments table
+$sql = 'SELECT a.date, a.time, a.reason, a.status, ip.name FROM appointments a JOIN imported_patients ip ON a.student_id = ip.id ORDER BY a.date DESC, a.time DESC';
+$result = $conn->query($sql);
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $appointments[] = $row;
+    }
+    $result->free();
+}
+$conn->close();
 ?>
 <!-- Dashboard Content -->
 
@@ -83,57 +100,44 @@ include '../includes/header.php';
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-4 py-2 text-left font-semibold text-gray-600">Name</th>
+                        <th class="px-4 py-2 text-left font-semibold text-gray-600">Date</th>
                         <th class="px-4 py-2 text-left font-semibold text-gray-600">Time</th>
+                        <th class="px-4 py-2 text-left font-semibold text-gray-600">Reason</th>
                         <th class="px-4 py-2 text-left font-semibold text-gray-600">Status</th>
                         <th class="px-4 py-2 text-center font-semibold text-gray-600">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td class="px-4 py-2">Emily Johnson</td>
-                        <td class="px-4 py-2">2025-05-15 09:00 AM</td>
-                        <td class="px-4 py-2"><span
-                                class="inline-block px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs">Pending</span>
-                        </td>
-                        <td class="px-4 py-2 text-center">
-                            <button
-                                class="approveBtn px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 mr-1">Approve</button>
-                            <button
-                                class="declineBtn px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 mr-1">Decline</button>
-                            <button
-                                class="reschedBtn px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Reschedule</button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="px-4 py-2">Michael Williams</td>
-                        <td class="px-4 py-2">2025-05-15 10:30 AM</td>
-                        <td class="px-4 py-2"><span
-                                class="inline-block px-2 py-1 rounded bg-green-100 text-green-800 text-xs">Approved</span>
-                        </td>
-                        <td class="px-4 py-2 text-center">
-                            <button
-                                class="approveBtn px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 mr-1">Approve</button>
-                            <button
-                                class="declineBtn px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 mr-1">Decline</button>
-                            <button
-                                class="reschedBtn px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Reschedule</button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="px-4 py-2">Sarah Thompson</td>
-                        <td class="px-4 py-2">2025-05-15 01:00 PM</td>
-                        <td class="px-4 py-2"><span
-                                class="inline-block px-2 py-1 rounded bg-red-100 text-red-800 text-xs">Declined</span>
-                        </td>
-                        <td class="px-4 py-2 text-center">
-                            <button
-                                class="approveBtn px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 mr-1">Approve</button>
-                            <button
-                                class="declineBtn px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 mr-1">Decline</button>
-                            <button
-                                class="reschedBtn px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Reschedule</button>
-                        </td>
-                    </tr>
+                    <?php if (!empty($appointments)): ?>
+                        <?php foreach ($appointments as $appt): ?>
+                            <?php if ($appt['status'] !== 'cancelled'): ?>
+                            <tr>
+                                <td class="px-4 py-2"><?php echo htmlspecialchars($appt['name']); ?></td>
+                                <td class="px-4 py-2"><?php echo htmlspecialchars($appt['date']); ?></td>
+                                <td class="px-4 py-2"><?php echo htmlspecialchars($appt['time']); ?></td>
+                                <td class="px-4 py-2"><?php echo htmlspecialchars($appt['reason']); ?></td>
+                                <td class="px-4 py-2">
+                                    <?php if ($appt['status'] === 'pending'): ?>
+                                        <span class="inline-block px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs">Pending</span>
+                                    <?php elseif ($appt['status'] === 'approved' || $appt['status'] === 'confirmed'): ?>
+                                        <span class="inline-block px-2 py-1 rounded bg-green-100 text-green-800 text-xs">Approved</span>
+                                    <?php elseif ($appt['status'] === 'declined'): ?>
+                                        <span class="inline-block px-2 py-1 rounded bg-red-100 text-red-800 text-xs">Declined</span>
+                                    <?php else: ?>
+                                        <span class="inline-block px-2 py-1 rounded bg-gray-100 text-gray-800 text-xs"><?php echo htmlspecialchars(ucfirst($appt['status'])); ?></span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="px-4 py-2 text-center">
+                                    <button class="approveBtn px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 mr-1">Approve</button>
+                                    <button class="declineBtn px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 mr-1">Decline</button>
+                                    <button class="reschedBtn px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Reschedule</button>
+                                </td>
+                            </tr>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr><td colspan="6" class="px-4 py-2 text-center text-gray-400">No appointments found.</td></tr>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
