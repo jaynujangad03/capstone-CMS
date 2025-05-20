@@ -183,7 +183,8 @@ if (isset($_SESSION['username'])) {
         <header class="bg-white border-b border-gray-200 fixed top-0 left-0 w-full z-30">
             <div class="flex items-center justify-between px-6 py-3">
                 <div class="flex items-center">
-                    <img src="../logo.jpg" alt="St. Cecilia's College Logo" class="h-12 w-12 object-contain rounded-full border border-gray-200 bg-white shadow mr-4" />
+                    <img src="../logo.jpg" alt="St. Cecilia's College Logo"
+                        class="h-12 w-12 object-contain rounded-full border border-gray-200 bg-white shadow mr-4" />
                     <h1 class="text-xl font-semibold text-gray-800 hidden md:block">Clinic Management System</h1>
                 </div>
                 <div class="flex items-center space-x-4">
@@ -195,12 +196,8 @@ if (isset($_SESSION['username'])) {
                             class="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-xs flex items-center justify-center rounded-full">3</span>
                     </div>
                     <div class="relative">
-                        <button class="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-primary">
-                            <i class="ri-settings-3-line ri-xl"></i>
-                        </button>
-                    </div>
-                    <div class="flex items-center">
-                        <div class="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white mr-2">
+                        <div id="userAvatarBtn"
+                            class="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white mr-2 cursor-pointer select-none">
                             <span class="font-medium">
                                 <?php
                                 // Show initials from user_display_name, fallback to 'U'
@@ -216,15 +213,34 @@ if (isset($_SESSION['username'])) {
                                 ?>
                             </span>
                         </div>
-                        <div class="hidden md:block">
-                            <p class="text-sm font-medium text-gray-800"><?php echo $user_display_name ? $user_display_name : 'User'; ?></p>
-                            <p class="text-xs text-gray-500">
-                                <?php
-                                // Show role if available
-                                echo isset($_SESSION['role']) ? htmlspecialchars($_SESSION['role']) : '';
-                                ?>
-                            </p>
+                        <!-- Dropdown Pop-up -->
+                        <div id="userDropdown"
+                            class="hidden absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 z-50">
+                            <div class="py-2">
+                                <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="ri-user-line mr-2 text-lg text-primary"></i> My Profile
+                                </a>
+                                <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="ri-settings-3-line mr-2 text-lg text-primary"></i> Settings & privacy
+                                </a>
+                                <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="ri-question-line mr-2 text-lg text-primary"></i> Help & support
+                                </a>
+                                <div class="border-t my-2"></div>
+                                <a href="../index.php"
+                                    class="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                                    <i class="ri-logout-box-line mr-2 text-lg"></i> Log out
+                                </a>
+                            </div>
                         </div>
+                    </div>
+                    <div class="hidden md:block">
+                        <p class="text-sm font-medium text-gray-800">
+                            <?php echo $user_display_name ? $user_display_name : 'User'; ?>
+                        </p>
+                        <p class="text-xs text-gray-500">
+                            <?php echo isset($_SESSION['role']) ? htmlspecialchars($_SESSION['role']) : ''; ?>
+                        </p>
                     </div>
                 </div>
             </div>
@@ -317,4 +333,23 @@ if (isset($_SESSION['username'])) {
                             });
                         });
                     })();
+            </script>
+            <script>
+                // User avatar dropdown logic
+                document.addEventListener('DOMContentLoaded', function () {
+                    const avatarBtn = document.getElementById('userAvatarBtn');
+                    const dropdown = document.getElementById('userDropdown');
+                    let dropdownOpen = false;
+                    avatarBtn.addEventListener('click', function (e) {
+                        e.stopPropagation();
+                        dropdown.classList.toggle('hidden');
+                        dropdownOpen = !dropdownOpen;
+                    });
+                    document.addEventListener('click', function (e) {
+                        if (dropdownOpen && !avatarBtn.contains(e.target) && !dropdown.contains(e.target)) {
+                            dropdown.classList.add('hidden');
+                            dropdownOpen = false;
+                        }
+                    });
+                });
             </script>

@@ -5,44 +5,48 @@
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-//required files
-require 'phpmailer/src/Exception.php';
-require 'phpmailer/src/PHPMailer.php';
-require 'phpmailer/src/SMTP.php';
+require_once __DIR__ . '/phpmailer/src/Exception.php';
+require_once __DIR__ . '/phpmailer/src/PHPMailer.php';
+require_once __DIR__ . '/phpmailer/src/SMTP.php';
 
-//Create an instance; passing `true` enables exceptions
+function sendMail($to_email, $to_name, $subject, $message, $from_email = 'jaynujangad03@gmail.com', $from_name = 'Clinic Management System') {
+    $mail = new PHPMailer(true);
+    try {
+        $mail->isSMTP();
+        $mail->Host       = 'smtp.gmail.com';
+        $mail->SMTPAuth   = true;
+        $mail->Username   = 'jaynujangad03@gmail.com';
+        $mail->Password   = 'cyuoitwylyocfiur
+';
+        $mail->SMTPSecure = 'ssl';
+        $mail->Port       = 465;
+
+        $mail->setFrom($from_email, $from_name);
+        $mail->addAddress($to_email, $to_name);
+        $mail->addReplyTo($from_email, $from_name);
+
+        $mail->isHTML(true);
+        $mail->Subject = $subject;
+        $mail->Body    = $message;
+
+        $mail->send();
+        return true;
+    } catch (Exception $e) {
+        // Optionally log error: $mail->ErrorInfo
+        return false;
+    }
+}
+
+// Retain the form handler for manual testing (optional)
 if (isset($_POST["send"])) {
-
-  $mail = new PHPMailer(true);
-
-    //Server settings
-    $mail->isSMTP();                              //Send using SMTP
-    $mail->Host       = 'smtp.gmail.com';       //Set the SMTP server to send through
-    $mail->SMTPAuth   = true;             //Enable SMTP authentication
-    $mail->Username   = 'jaynujangad03@gmail.com';   //SMTP write your email
-    $mail->Password   = 'cyuoitwylyocfiur
-';      //SMTP password
-    $mail->SMTPSecure = 'ssl';            //Enable implicit SSL encryption
-    $mail->Port       = 465;                                    
-
-    //Recipients
-    $mail->setFrom( $_POST["email"], $_POST["name"]); // Sender Email and name
-    $mail->addAddress($_POST["to_email"]);     //Send to recipient from form
-    $mail->addReplyTo($_POST["email"], $_POST["name"]); // reply to sender email
-
-    //Content
-    $mail->isHTML(true);               //Set email format to HTML
-    $mail->Subject = $_POST["subject"];   // email subject headings
-    $mail->Body    = $_POST["message"]; //email message
-
-    // Success sent message alert
-    $mail->send();
-    echo
-    " 
-    <script> 
-     alert('Message was sent successfully!');
-     document.location.href = 'index.php';
-    </script>
-    ";
+    sendMail(
+        $_POST["to_email"],
+        $_POST["name"] ?? '',
+        $_POST["subject"],
+        $_POST["message"],
+        $_POST["email"] ?? 'jaynujangad03@gmail.com',
+        $_POST["name"] ?? 'Clinic Management System'
+    );
+    echo "<script>alert('Message was sent successfully!');document.location.href = 'index.php';</script>";
 }
 ?>

@@ -207,16 +207,34 @@ if ($user_display_name) {
                             <i class="ri-settings-3-line ri-xl"></i>
                         </button>
                     </div>
-                    <div class="flex items-center">
-                        <div class="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white mr-2">
+                    <div class="relative">
+                        <div id="userAvatarBtn" class="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white mr-2 cursor-pointer select-none">
                             <span class="font-medium"><?php echo $initials; ?></span>
                         </div>
-                        <div class="hidden md:block">
-                            <p class="text-sm font-medium text-gray-800"><?php echo $user_display_name ? $user_display_name : 'User'; ?></p>
-                            <p class="text-xs text-gray-500">
-                                <?php echo isset($_SESSION['role']) ? htmlspecialchars($_SESSION['role']) : ''; ?>
-                            </p>
+                        <!-- Dropdown Pop-up -->
+                        <div id="userDropdown" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 z-50">
+                            <div class="py-2">
+                                <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="ri-user-line mr-2 text-lg text-primary"></i> My Profile
+                                </a>
+                                <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="ri-settings-3-line mr-2 text-lg text-primary"></i> Settings & privacy
+                                </a>
+                                <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="ri-question-line mr-2 text-lg text-primary"></i> Help & support
+                                </a>
+                                <div class="border-t my-2"></div>
+                                <a href="../index.php" class="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                                    <i class="ri-logout-box-line mr-2 text-lg"></i> Log out
+                                </a>
+                            </div>
                         </div>
+                    </div>
+                    <div class="hidden md:block">
+                        <p class="text-sm font-medium text-gray-800"><?php echo $user_display_name ? $user_display_name : 'User'; ?></p>
+                        <p class="text-xs text-gray-500">
+                            <?php echo isset($_SESSION['role']) ? htmlspecialchars($_SESSION['role']) : ''; ?>
+                        </p>
                     </div>
                 </div>
             </div>
@@ -310,3 +328,22 @@ if ($user_display_name) {
                         });
                     })();
             </script>
+            <script>
+    // User avatar dropdown logic
+    document.addEventListener('DOMContentLoaded', function () {
+        const avatarBtn = document.getElementById('userAvatarBtn');
+        const dropdown = document.getElementById('userDropdown');
+        let dropdownOpen = false;
+        avatarBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            dropdown.classList.toggle('hidden');
+            dropdownOpen = !dropdownOpen;
+        });
+        document.addEventListener('click', function (e) {
+            if (dropdownOpen && !avatarBtn.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.classList.add('hidden');
+                dropdownOpen = false;
+            }
+        });
+    });
+</script>

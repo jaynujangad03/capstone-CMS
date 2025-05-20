@@ -93,7 +93,7 @@ try {
     </div>
     <!-- Prescribe Medicine Modal -->
     <div id="prescribeMedModal" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg shadow-lg w-full max-w-lg p-6 relative">
+        <div class="bg-white rounded-lg shadow-lg w-full max-w-lg p-6 relative prescribe-modal-scroll">
             <button id="closePrescribeMedModal" class="absolute top-2 right-2 text-gray-400 hover:text-gray-700">
                 <i class="ri-close-line ri-2x"></i>
             </button>
@@ -359,5 +359,34 @@ $(document).ready(function() {
 }
 .animate-fade-in {
   animation: fade-in 0.3s ease;
+}
+.prescribe-modal-scroll {
+  max-height: 80vh;
+  overflow-y: scroll;
+  border-radius: 0.75rem; /* Match modal's rounded-lg */
+  /* Always reserve space for scrollbar, so content never shifts */
+  scrollbar-gutter: stable both-edges;
+}
+.prescribe-modal-scroll:hover {
+  /* No change needed, always scrollable */
+}
+.prescribe-modal-scroll::-webkit-scrollbar {
+  width: 10px;
+  border-radius: 0.75rem;
+  background: transparent;
+}
+.prescribe-modal-scroll::-webkit-scrollbar-thumb {
+  border-radius: 0.75rem;
+  background: #c1c1c1; /* Use a neutral default, but let browser override */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.prescribe-modal-scroll::-webkit-scrollbar-thumb:hover {
+  background: #a0a0a0;
+}
+/* For Firefox */
+.prescribe-modal-scroll {
+  scrollbar-width: auto;
+  scrollbar-color: auto;
 }
 </style>

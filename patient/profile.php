@@ -76,7 +76,24 @@ include '../includep/header.php';
                 <div class="flex items-center gap-3">
                     <span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-100 text-green-600"><i class="ri-checkbox-circle-line"></i></span>
                     <div>
-                        <div class="text-lg font-bold"><?php echo $confirmed ?? 0; ?></div>
+                        <div class="text-lg font-bold">
+                            <?php
+                            // Count confirmed/approved appointments directly from the database for accuracy
+                            $conn_confirmed = new mysqli('localhost', 'root', '', 'clinic_management_system');
+                            $student_id = $_SESSION['student_row_id'];
+                            $confirmed_count = 0;
+                            if (!$conn_confirmed->connect_errno) {
+                                $stmt = $conn_confirmed->prepare('SELECT COUNT(*) FROM appointments WHERE student_id = ? AND (status = "approved" OR status = "confirmed")');
+                                $stmt->bind_param('i', $student_id);
+                                $stmt->execute();
+                                $stmt->bind_result($confirmed_count);
+                                $stmt->fetch();
+                                $stmt->close();
+                                $conn_confirmed->close();
+                            }
+                            echo $confirmed_count;
+                            ?>
+                        </div>
                         <div class="text-xs text-gray-500">Confirmed</div>
                     </div>
                 </div>

@@ -34,6 +34,31 @@ try {
 } catch (Exception $e) {
     $pendingPrescriptions = [];
 }
+
+// Pagination for Issue Medication History
+// Flatten prescription history so each medicine entry is a separate row (even for same patient)
+$flatPrescriptionHistory = [];
+foreach ($prescriptionHistory as $presc) {
+    $date = $presc['prescription_date'];
+    $patient = $presc['patient_name'];
+    $meds = json_decode($presc['medicines'], true);
+    if (is_array($meds)) {
+        foreach ($meds as $med) {
+            $flatPrescriptionHistory[] = [
+                'prescription_date' => $date,
+                'patient_name' => $patient,
+                'medicine' => $med['medicine'] ?? '',
+                'quantity' => $med['quantity'] ?? ''
+            ];
+        }
+    }
+}
+$historyPage = isset($_GET['history_page']) ? max(1, intval($_GET['history_page'])) : 1;
+$historyPerPage = 10;
+$historyTotal = count($flatPrescriptionHistory);
+$historyTotalPages = ceil($historyTotal / $historyPerPage);
+$historyStart = ($historyPage - 1) * $historyPerPage;
+$historyPageData = array_slice($flatPrescriptionHistory, $historyStart, $historyPerPage);
 ?>
 <!-- Dashboard Content -->
 <main class="flex-1 overflow-y-auto bg-gray-50 p-6 ml-16 md:ml-64 mt-[56px]">
@@ -91,7 +116,7 @@ try {
     <div class="bg-white rounded shadow p-6 mb-8">
         <h3 class="text-lg font-semibold mb-4">Issue Medication History</h3>
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <table id="issueHistoryTable" class="min-w-full divide-y divide-gray-200 text-sm">
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-4 py-2 text-left font-semibold text-gray-600">Date</th>
@@ -102,23 +127,21 @@ try {
                 </thead>
                 <tbody>
                     <?php
-                    if (!empty($prescriptionHistory)) {
-                        foreach ($prescriptionHistory as $presc) {
-                            $date = htmlspecialchars($presc['prescription_date']);
-                            $patient = htmlspecialchars($presc['patient_name']);
-                            $meds = json_decode($presc['medicines'], true);
-                            if (is_array($meds)) {
-                                foreach ($meds as $med) {
-                                    $medName = htmlspecialchars($med['medicine'] ?? '');
-                                    $qty = htmlspecialchars($med['quantity'] ?? '');
-                                    echo "<tr>";
-                                    echo "<td class='px-4 py-2'>" . $date . "</td>";
-                                    echo "<td class='px-4 py-2'>" . $patient . "</td>";
-                                    echo "<td class='px-4 py-2'>" . $medName . "</td>";
-                                    echo "<td class='px-4 py-2'>" . $qty . "</td>";
-                                    echo "</tr>";
-                                }
-                            }
+                    if (!empty($historyPageData)) {
+                        foreach ($historyPageData as $idx => $row) {
+                            $date = htmlspecialchars($row['prescription_date']);
+                            $patient = htmlspecialchars($row['patient_name']);
+                            $medName = htmlspecialchars($row['medicine']);
+                            $qty = htmlspecialchars($row['quantity']);
+                            echo "<tr>";
+                            echo "<td class='px-4 py-2 flex items-center gap-2'>";
+                            echo "<button class='viewHistoryBtn text-primary hover:text-blue-700' data-idx='{$idx}' title='View Details'><i class='ri-eye-line text-lg'></i></button>";
+                            echo $date;
+                            echo "</td>";
+                            echo "<td class='px-4 py-2'>" . $patient . "</td>";
+                            echo "<td class='px-4 py-2'>" . $medName . "</td>";
+                            echo "<td class='px-4 py-2'>" . $qty . "</td>";
+                            echo "</tr>";
                         }
                     } else {
                         echo "<tr><td colspan='4' class='px-4 py-2 text-center text-gray-500'>No prescription history found.</td></tr>";
@@ -126,6 +149,36 @@ try {
                     ?>
                 </tbody>
             </table>
+        </div>
+        <div class="flex flex-col md:flex-row md:justify-between md:items-center mt-4 gap-2">
+            <div class="text-sm text-gray-600">
+                Showing
+                <span class="font-semibold">
+                    <?php echo $historyTotal == 0 ? 0 : ($historyStart + 1); ?>
+                </span>
+                to
+                <span class="font-semibold">
+                    <?php echo min($historyStart + $historyPerPage, $historyTotal); ?>
+                </span>
+                of
+                <span class="font-semibold">
+                    <?php echo $historyTotal; ?>
+                </span>
+                entries
+            </div>
+            <div class="flex flex-wrap gap-1">
+                <?php if ($historyTotalPages > 1): ?>
+                    <?php if ($historyPage > 1): ?>
+                        <a href="?history_page=<?php echo $historyPage-1; ?>" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Prev</a>
+                    <?php endif; ?>
+                    <?php for ($i = 1; $i <= $historyTotalPages; $i++): ?>
+                        <a href="?history_page=<?php echo $i; ?>" class="px-3 py-1 rounded <?php echo $i == $historyPage ? 'bg-primary text-white' : 'bg-gray-200 hover:bg-gray-300'; ?>"><?php echo $i; ?></a>
+                    <?php endfor; ?>
+                    <?php if ($historyPage < $historyTotalPages): ?>
+                        <a href="?history_page=<?php echo $historyPage+1; ?>" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">Next</a>
+                    <?php endif; ?>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
     <!-- Patients with Pending Prescriptions List -->
@@ -153,17 +206,28 @@ try {
                     if (!empty($pendingPrescriptions)) {
                         foreach ($pendingPrescriptions as $pending) {
                             $meds = json_decode($pending['medicines'], true);
-                            $firstMed = $meds[0] ?? [];
                             echo '<tr data-id="' . htmlspecialchars($pending['id']) . '">';
                             echo '<td class="px-2 py-2"><input type="checkbox" class="pendingCheckbox"></td>';
                             echo '<td class="px-4 py-2">' . htmlspecialchars($pending['patient_id']) . '</td>';
                             echo '<td class="px-4 py-2">' . htmlspecialchars($pending['patient_name']) . '</td>';
-                            echo '<td class="px-4 py-2">' . htmlspecialchars($firstMed['medicine'] ?? '-') . '</td>';
-                            echo '<td class="px-4 py-2">' . htmlspecialchars($firstMed['dosage'] ?? '-') . '</td>';
-                            echo '<td class="px-4 py-2">' . htmlspecialchars($firstMed['quantity'] ?? '-') . '</td>';
+                            // Prescribed Medicine(s) column: show all medicines, pipe separated
+                            if (is_array($meds) && count($meds) > 0) {
+                                $medNames = array_map(function($m) { return htmlspecialchars($m['medicine'] ?? '-'); }, $meds);
+                                echo '<td class="px-4 py-2">' . implode(' | ', $medNames) . '</td>';
+                                // Dosage column: show all dosages, pipe separated
+                                $dosages = array_map(function($m) { return htmlspecialchars($m['dosage'] ?? '-'); }, $meds);
+                                echo '<td class="px-4 py-2">' . implode(' | ', $dosages) . '</td>';
+                                // Quantity column: show all quantities, pipe separated
+                                $quantities = array_map(function($m) { return htmlspecialchars($m['quantity'] ?? '-'); }, $meds);
+                                echo '<td class="px-4 py-2">' . implode(' | ', $quantities) . '</td>';
+                            } else {
+                                echo '<td class="px-4 py-2">-</td>';
+                                echo '<td class="px-4 py-2">-</td>';
+                                echo '<td class="px-4 py-2">-</td>';
+                            }
                             echo '<td class="px-4 py-2"><span class="inline-block px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs">Pending</span></td>';
                             echo '<td class="px-4 py-2 text-center">';
-                            echo '<button class="issuePendingSingleBtn px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600">Issue</button>';
+                            echo '<button class="issuePendingSingleBtn px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600" onclick="issuePrescription([\'' . htmlspecialchars($pending['id']) . '\'])">Issue</button>';
                             echo '</td>';
                             echo '</tr>';
                         }
@@ -233,7 +297,27 @@ try {
             </form>
         </div>
     </div>
+    <!-- Modal for viewing prescription details -->
+    <div id="historyViewModal" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+            <button id="closeHistoryViewModal" class="absolute top-2 right-2 text-gray-400 hover:text-gray-700">
+                <i class="ri-close-line ri-2x"></i>
+            </button>
+            <h3 id="historyViewModalTitle" class="text-lg font-semibold text-gray-800 mb-4"></h3>
+            <div id="historyViewModalBody" class="text-sm text-gray-700 space-y-2"></div>
+        </div>
+    </div>
 </main>
+<style>
+.dataTables_wrapper .dataTables_length, .dataTables_wrapper .dataTables_filter, .dataTables_wrapper .dataTables_info, .dataTables_wrapper .dataTables_processing, .dataTables_wrapper .dataTables_paginate {
+    color: inherit;
+}
+.dataTables_wrapper .dataTables_paginate {
+    float: right;
+    text-align: right;
+    padding-top: .25em;
+}
+</style>
 <script>
     // Modal logic
     const addMedBtn = document.getElementById('addMedBtn');
@@ -253,14 +337,14 @@ try {
 
     // Patients with Pending Prescriptions List logic
     const selectAllPending = document.getElementById('selectAllPending');
-    const pendingCheckboxes = document.querySelectorAll('.pendingCheckbox');
     const issuePendingBtn = document.getElementById('issuePendingBtn');
-    const issuePendingSingleBtns = document.querySelectorAll('.issuePendingSingleBtn');
+
     if(selectAllPending) {
         selectAllPending.addEventListener('change', function() {
-            pendingCheckboxes.forEach(cb => cb.checked = this.checked);
+            document.querySelectorAll('.pendingCheckbox').forEach(cb => cb.checked = this.checked);
         });
     }
+
     // Issue Pending Prescription logic
     function issuePrescription(ids) {
         fetch('issue_prescription.php', {
@@ -279,17 +363,28 @@ try {
         })
         .catch(() => alert('Error issuing prescription.'));
     }
+
     if(issuePendingBtn) {
         issuePendingBtn.addEventListener('click', function() {
-            let selected = Array.from(document.querySelectorAll('.pendingCheckbox')).map((cb, i) => cb.checked ? cb.closest('tr').getAttribute('data-id') : null).filter(Boolean);
-            if(selected.length === 0) { alert('No patients selected.'); return; }
+            const selected = Array.from(document.querySelectorAll('.pendingCheckbox'))
+                .filter(cb => cb.checked)
+                .map(cb => cb.closest('tr').getAttribute('data-id'));
+            if(selected.length === 0) {
+                alert('No patients selected.');
+                return;
+            }
             issuePrescription(selected);
         });
     }
-    document.querySelectorAll('.issuePendingSingleBtn').forEach(btn => btn.addEventListener('click', function() {
-        const id = this.closest('tr').getAttribute('data-id');
-        issuePrescription([id]);
-    }));
+    // Single Issue button: always issues only its row, does not depend on checkbox
+    // (No need to disable checkbox, just issue the row's ID)
+    document.querySelectorAll('.issuePendingSingleBtn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const id = this.closest('tr').getAttribute('data-id');
+            issuePrescription([id]);
+        });
+    });
 
     // Add Medicine Modal logic with backend integration
     document.querySelector('#addMedModal form').addEventListener('submit', function (e) {
@@ -408,6 +503,32 @@ try {
             row.style.display = (matchesFilter && matchesSearch) ? '' : 'none';
         });
     }
+
+    // Issue Medication History View Modal logic
+    const historyData = <?php echo json_encode(array_values($historyPageData)); ?>;
+    const viewBtns = document.querySelectorAll('.viewHistoryBtn');
+    const viewModal = document.getElementById('historyViewModal');
+    const closeViewModal = document.getElementById('closeHistoryViewModal');
+    const viewModalTitle = document.getElementById('historyViewModalTitle');
+    const viewModalBody = document.getElementById('historyViewModalBody');
+    viewBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const idx = this.getAttribute('data-idx');
+            const row = historyData[idx];
+            viewModalTitle.textContent = row.patient_name;
+            viewModalBody.innerHTML = `
+                <div><span class='font-semibold'>Date:</span> ${row.prescription_date}</div>
+                <div><span class='font-semibold'>Patient:</span> ${row.patient_name}</div>
+                <div><span class='font-semibold'>Medicine:</span> ${row.medicine}</div>
+                <div><span class='font-semibold'>Quantity:</span> ${row.quantity}</div>
+            `;
+            viewModal.classList.remove('hidden');
+        });
+    });
+    closeViewModal.addEventListener('click', () => viewModal.classList.add('hidden'));
+    window.addEventListener('click', (e) => {
+        if (e.target === viewModal) viewModal.classList.add('hidden');
+    });
 </script>
 <?php
 include '../includes/footer.php';

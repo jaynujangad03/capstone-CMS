@@ -13,26 +13,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $date = $_POST['date'];
     $time = $_POST['time'];
     $reason = $_POST['reason'];
-    $insert = $conn2->prepare('INSERT INTO appointments (student_id, date, time, reason, status) VALUES (?, ?, ?, ?, ?)');
+    $email = $_POST['email'];
+    $insert = $conn2->prepare('INSERT INTO appointments (student_id, date, time, reason, status, email) VALUES (?, ?, ?, ?, ?, ?)');
     $status = 'pending';
-    $insert->bind_param('issss', $student_id, $date, $time, $reason, $status);
+    $insert->bind_param('isssss', $student_id, $date, $time, $reason, $status, $email);
     $insert->execute();
     $insert->close();
 }
 
 // Fetch appointments for this student
 $appointments = [];
-$stmt = $conn2->prepare('SELECT date, time, reason, status FROM appointments WHERE student_id = ? ORDER BY date DESC, time DESC');
+$stmt = $conn2->prepare('SELECT date, time, reason, status, email FROM appointments WHERE student_id = ? ORDER BY date DESC, time DESC');
 if ($stmt) {
     $stmt->bind_param('i', $student_id);
     $stmt->execute();
-    $stmt->bind_result($date, $time, $reason, $status);
+    $stmt->bind_result($date, $time, $reason, $status, $email);
     while ($stmt->fetch()) {
         $appointments[] = [
             'date' => $date,
             'time' => $time,
             'reason' => $reason,
-            'status' => $status
+            'status' => $status,
+            'email' => $email
         ];
     }
     $stmt->close();
@@ -65,12 +67,16 @@ $conn2->close();
                 <label class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
                 <input type="text" name="reason" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="Enter reason" required />
             </div>
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                <input type="email" name="email" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" placeholder="Enter your email address" required />
+            </div>
             <button type="submit" id="bookApptBtn" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition-colors">Book Appointment</button>
         </form>
     </div>
-    <!-- My Appointments Table -->
-    <div class="bg-white rounded shadow p-6">
-        <h3 class="text-lg font-semibold mb-4">My Appointments</h3>
+    <!-- My Appointments Table: Pending -->
+    <div class="bg-white rounded shadow p-6 mb-8">
+        <h3 class="text-lg font-semibold mb-4">My Pending Appointments</h3>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 text-sm">
                 <thead class="bg-gray-50">
@@ -78,6 +84,7 @@ $conn2->close();
                         <th class="px-4 py-2 text-left font-semibold text-gray-600">Date</th>
                         <th class="px-4 py-2 text-left font-semibold text-gray-600">Time</th>
                         <th class="px-4 py-2 text-left font-semibold text-gray-600">Reason</th>
+                        <th class="px-4 py-2 text-left font-semibold text-gray-600">Email</th>
                         <th class="px-4 py-2 text-left font-semibold text-gray-600">Status</th>
                         <th class="px-4 py-2 text-center font-semibold text-gray-600">Actions</th>
                     </tr>
@@ -85,29 +92,70 @@ $conn2->close();
                 <tbody>
                 <?php if (!empty($appointments)): ?>
                     <?php foreach ($appointments as $appt): ?>
+                        <?php if ($appt['status'] === 'pending'): ?>
                         <tr>
                             <td class="px-4 py-2"><?php echo htmlspecialchars($appt['date']); ?></td>
                             <td class="px-4 py-2"><?php echo htmlspecialchars($appt['time']); ?></td>
                             <td class="px-4 py-2"><?php echo htmlspecialchars($appt['reason']); ?></td>
+                            <td class="px-4 py-2"><?php echo htmlspecialchars($appt['email']); ?></td>
                             <td class="px-4 py-2">
-                                <?php if ($appt['status'] === 'pending'): ?>
-                                    <span class="inline-block px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs">Pending</span>
-                                <?php elseif ($appt['status'] === 'confirmed'): ?>
-                                    <span class="inline-block px-2 py-1 rounded bg-green-100 text-green-800 text-xs">Confirmed</span>
-                                <?php elseif ($appt['status'] === 'cancelled'): ?>
-                                    <span class="inline-block px-2 py-1 rounded bg-red-100 text-red-800 text-xs">Cancelled</span>
-                                <?php else: ?>
-                                    <span class="inline-block px-2 py-1 rounded bg-gray-100 text-gray-800 text-xs"><?php echo htmlspecialchars($appt['status']); ?></span>
-                                <?php endif; ?>
+                                <span class="inline-block px-2 py-1 rounded bg-yellow-100 text-yellow-800 text-xs">Pending</span>
                             </td>
                             <td class="px-4 py-2 text-center">
                                 <button class="cancelBtn px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 mr-1">Cancel</button>
                                 <button class="reschedBtn px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">Reschedule</button>
                             </td>
                         </tr>
+                        <?php endif; ?>
                     <?php endforeach; ?>
                 <?php else: ?>
-                    <tr><td colspan="5" class="px-4 py-2 text-center text-gray-400">No appointments found.</td></tr>
+                    <tr><td colspan="6" class="px-4 py-2 text-center text-gray-400">No pending appointments found.</td></tr>
+                <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <!-- My Appointments Table: Done (Approved/Declined/Rescheduled) -->
+    <div class="bg-white rounded shadow p-6">
+        <h3 class="text-lg font-semibold mb-4">My Approved Appointments</h3>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-2 text-left font-semibold text-gray-600">Date</th>
+                        <th class="px-4 py-2 text-left font-semibold text-gray-600">Time</th>
+                        <th class="px-4 py-2 text-left font-semibold text-gray-600">Reason</th>
+                        <th class="px-4 py-2 text-left font-semibold text-gray-600">Email</th>
+                        <th class="px-4 py-2 text-left font-semibold text-gray-600">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php if (!empty($appointments)): ?>
+                    <?php foreach ($appointments as $appt): ?>
+                        <?php if ($appt['status'] === 'approved' || $appt['status'] === 'confirmed' || $appt['status'] === 'declined' || $appt['status'] === 'rescheduled'): ?>
+                        <tr>
+                            <td class="px-4 py-2"><?php echo htmlspecialchars($appt['date']); ?></td>
+                            <td class="px-4 py-2"><?php echo htmlspecialchars($appt['time']); ?></td>
+                            <td class="px-4 py-2"><?php echo htmlspecialchars($appt['reason']); ?></td>
+                            <td class="px-4 py-2"><?php echo htmlspecialchars($appt['email']); ?></td>
+                            <td class="px-4 py-2">
+                                <?php if ($appt['status'] === 'approved' || $appt['status'] === 'confirmed'): ?>
+                                    <span class="inline-block px-2 py-1 rounded bg-green-100 text-green-800 text-xs">Approved</span>
+                                    <span class="block text-xs text-green-700 mt-1">Please wait for this day and go to the clinic.</span>
+                                <?php elseif ($appt['status'] === 'declined'): ?>
+                                    <span class="inline-block px-2 py-1 rounded bg-red-100 text-red-800 text-xs">Declined</span>
+                                <?php elseif ($appt['status'] === 'rescheduled'): ?>
+                                    <span class="inline-block px-2 py-1 rounded bg-blue-100 text-blue-800 text-xs">Rescheduled</span>
+                                    <span class="block text-xs text-blue-700 mt-1">Please wait for this day and go to the clinic.</span>
+                                <?php else: ?>
+                                    <span class="inline-block px-2 py-1 rounded bg-gray-100 text-gray-800 text-xs"><?php echo htmlspecialchars(ucfirst($appt['status'])); ?></span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <tr><td colspan="5" class="px-4 py-2 text-center text-gray-400">No done appointments found.</td></tr>
                 <?php endif; ?>
                 </tbody>
             </table>
